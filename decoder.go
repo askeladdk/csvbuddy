@@ -51,6 +51,7 @@ func newDecodingError(cr Reader, field int, err error) error {
 type Decoder struct {
 	reader          io.Reader
 	readerFunc      func(io.Reader) Reader
+	cleanerFunc     func(column, field string) string
 	header          []string
 	errors          []error
 	skipInvalidRows bool
@@ -60,8 +61,9 @@ type Decoder struct {
 // NewDecoder returns a Decoder that reads from r.
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		reader:     r,
-		readerFunc: NewReader,
+		reader:      r,
+		readerFunc:  NewReader,
+		cleanerFunc: func(_, field string) string { return field },
 	}
 }
 
@@ -184,6 +186,7 @@ loop:
 			column := record[indices[i]]
 			field := fields[indices[i+1]]
 			fieldval := value.Elem().FieldByIndex(field.Index)
+			column = d.cleanerFunc(field.Name, column)
 			if err = decodeField(fieldval, field.Kind, field.Name, column); err != nil {
 				err = newDecodingError(cr, indices[i], err)
 				if !d.skipInvalidRows {
@@ -261,6 +264,10 @@ func (d *Decoder) DisallowUnknownFields() { d.noUnknownFields = true }
 
 // Errors returns the collected decoding errors if SkipInvalidRows is enabled.
 func (d *Decoder) Errors() []error { return d.errors }
+
+// SetCleanerFunc causes the Decoder to call fn on every field before type conversion.
+// Use this to clean wrongly formatted values.
+func (d *Decoder) SetCleanerFunc(fn func(column, field string) string) { d.cleanerFunc = fn }
 
 // SetHeader causes the Decoder to use the specified slice as the CSV header
 // instead of interpreting the first record as the header.

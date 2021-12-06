@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"encoding/csv"
 	"errors"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -157,5 +158,35 @@ func TestDecodeTooFewFields(t *testing.T) {
 
 	if err := d.Decode(&data); !errors.Is(err, csv.ErrFieldCount) {
 		t.Fatal("should be error")
+	}
+}
+
+func TestCleanerFunc(t *testing.T) {
+	type struc struct {
+		A int
+		B float64
+	}
+
+	testdata := "100,1.23\n,n/a"
+
+	var data []struc
+
+	d := NewDecoder(strings.NewReader(testdata))
+	d.SetHeader(MustHeader(struc{}))
+	d.SetCleanerFunc(func(column, field string) string {
+		if column == "A" && field == "" {
+			return "0"
+		} else if column == "B" && field == "n/a" {
+			return "NaN"
+		}
+		return field
+	})
+
+	if err := d.Decode(&data); err != nil {
+		t.Fatal(err)
+	}
+
+	if data[1].A != 0 || !math.IsNaN(data[1].B) {
+		t.Fatal("should be zero and NaN")
 	}
 }
