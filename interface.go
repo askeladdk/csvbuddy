@@ -19,3 +19,10 @@ func NewReader(r io.Reader) Reader {
 	cr.ReuseRecord = true
 	return cr
 }
+
+func fieldPos(r Reader, field int) (int, int) {
+	if fp, ok := r.(interface{ FieldPos(int) (int, int) }); ok {
+		return fp.FieldPos(field)
+	}
+	return 0, 0
+}

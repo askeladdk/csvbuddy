@@ -143,21 +143,43 @@ func TestDecodeSkipInvalidRows(t *testing.T) {
 	}
 }
 
-func TestDecodeTooFewFields(t *testing.T) {
+func TestDecodeSyntaxError(t *testing.T) {
 	type struc struct {
 		B bool
-		S string
+		I int
 	}
 
-	testdata := "true"
+	testdata := ","
 
 	var data []struc
 
 	d := NewDecoder(strings.NewReader(testdata))
 	d.SetHeader(MustHeader(struc{}))
 
-	if err := d.Decode(&data); !errors.Is(err, csv.ErrFieldCount) {
-		t.Fatal("should be error")
+	if err := d.Decode(&data); !errors.Is(err, strconv.ErrSyntax) {
+		t.Fatal("expected syntax error", err)
+	}
+}
+
+func TestDecodeOptionalFields(t *testing.T) {
+	type struc struct {
+		B *bool
+		I *int
+	}
+
+	testdata := ","
+
+	var data []struc
+
+	d := NewDecoder(strings.NewReader(testdata))
+	d.SetHeader(MustHeader(struc{}))
+
+	if err := d.Decode(&data); err != nil {
+		t.Fatal(err)
+	}
+
+	if data[0].B != nil || data[0].I != nil {
+		t.Fatal("expected nil")
 	}
 }
 

@@ -38,11 +38,9 @@ func (err *DecodingError) Error() string {
 // Unwrap implements the errors.Unwrap interface.
 func (err *DecodingError) Unwrap() error { return err.wrapped }
 
-func newDecodingError(cr Reader, field int, err error) error {
+func newDecodingError(r Reader, field int, err error) error {
 	var e DecodingError
-	if fp, ok := cr.(interface{ FieldPos(int) (int, int) }); ok {
-		e.Line, e.Column = fp.FieldPos(field)
-	}
+	e.Line, e.Column = fieldPos(r, field)
 	e.wrapped = err
 	return &e
 }
@@ -142,10 +140,12 @@ func decodeField(v reflect.Value, kind reflect.Kind, name string, value string) 
 	return
 }
 
-func (d *Decoder) decodeFunc(valueType reflect.Type, fn func(reflect.Value) error) (err error) {
+func (d *Decoder) decodeFunc(structType reflect.Type, fn func(reflect.Value) error) error {
+	var err error
+
 	// parse the struct data type
 	var fields []structField
-	if fields, err = structFieldsOf(valueType); err != nil {
+	if fields, err = structFieldsOf(structType); err != nil {
 		return fmt.Errorf("csv: %w", err)
 	}
 
@@ -169,35 +169,45 @@ loop:
 			return fmt.Errorf("csv: %w", err)
 		}
 
-		// check record length
-		if len(record) < len(fields) || (d.noUnknownFields && len(record) > len(fields)) {
+		// disallow records that have more columns than struct fields
+		if d.noUnknownFields && len(record) > len(fields) {
 			err = newDecodingError(cr, 0, csv.ErrFieldCount)
 			if !d.skipInvalidRows {
-				return
+				return err
 			}
 			d.errors = append(d.errors, err)
 			continue loop
 		}
 
-		value := reflect.New(valueType) // new(T)
+		structval := reflect.New(structType) // new(T)
 
-		// parse every column into value
+		// loop through every (column index, struct field index) pair
 		for i := 0; i < len(indices); i += 2 {
-			column := record[indices[i]]
+			var value string
+			var fieldidx int
+			// get column if it is within range
+			if fieldidx = indices[i]; fieldidx < len(record) {
+				value = record[fieldidx]
+			}
+			// get the struct field
 			field := fields[indices[i+1]]
-			fieldval := value.Elem().FieldByIndex(field.Index)
-			column = d.cleanerFunc(field.Name, column)
-			if err = decodeField(fieldval, field.Kind, field.Name, column); err != nil {
-				err = newDecodingError(cr, indices[i], err)
+			fieldval := structval.Elem().FieldByIndex(field.Index)
+			// clean the value string and type convert it
+			value = d.cleanerFunc(field.Name, value)
+			if err = decodeField(fieldval, field.Kind, field.Name, value); err != nil {
+				if fieldidx >= len(record) {
+					fieldidx = len(record) - 1
+				}
+				err = newDecodingError(cr, fieldidx, err)
 				if !d.skipInvalidRows {
-					return
+					return err
 				}
 				d.errors = append(d.errors, err)
 				continue loop
 			}
 		}
 
-		if err = fn(value); err != nil {
+		if err = fn(structval); err != nil {
 			return fmt.Errorf("csv: %w", err)
 		}
 	}
@@ -259,7 +269,7 @@ func (d *Decoder) DecodeFunc(fn interface{}) (err error) {
 }
 
 // DisallowUnknownFields causes the Decoder to raise an error
-// if a record has more columns than the header.
+// if a record has more columns than struct fields.
 func (d *Decoder) DisallowUnknownFields() { d.noUnknownFields = true }
 
 // Errors returns the collected decoding errors if SkipInvalidRows is enabled.
@@ -267,7 +277,7 @@ func (d *Decoder) Errors() []error { return d.errors }
 
 // SetCleanerFunc causes the Decoder to call fn on every field before type conversion.
 // Use this to clean wrongly formatted values.
-func (d *Decoder) SetCleanerFunc(fn func(column, field string) string) { d.cleanerFunc = fn }
+func (d *Decoder) SetCleanerFunc(fn func(column, value string) string) { d.cleanerFunc = fn }
 
 // SetHeader causes the Decoder to use the specified slice as the CSV header
 // instead of interpreting the first record as the header.
