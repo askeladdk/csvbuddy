@@ -4,63 +4,317 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 )
 
 var (
 	byteSliceType       = reflect.TypeOf((*[]byte)(nil)).Elem()
 	errorType           = reflect.TypeOf((*error)(nil)).Elem()
+	textMarshalerType   = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
 	structCache = map[reflect.Type][]structField{}
 	structLock  sync.Mutex
 )
 
-const (
-	byteSlice reflect.Kind = 1<<16 + iota
-	textUnmarshaler
-)
+type valueDecoder func(reflect.Value, string) error
 
-type structField struct {
-	Index []int
-	Kind  reflect.Kind
-	Name  string
+func boolDecoder(v reflect.Value, s string) (err error) {
+	var x bool
+	if x, err = strconv.ParseBool(s); err == nil {
+		v.SetBool(x)
+	}
+	return
 }
 
-func kindOf(t reflect.Type) reflect.Kind {
+func complexDecoder(bitSize int) valueDecoder {
+	return func(v reflect.Value, s string) (err error) {
+		var x complex128
+		if x, err = strconv.ParseComplex(s, bitSize); err == nil {
+			v.SetComplex(x)
+		}
+		return
+	}
+}
+
+func floatDecoder(bitSize int) valueDecoder {
+	return func(v reflect.Value, s string) (err error) {
+		var x float64
+		if x, err = strconv.ParseFloat(s, bitSize); err == nil {
+			v.SetFloat(x)
+		}
+		return
+	}
+}
+
+var (
+	complex64Decoder  = complexDecoder(64)
+	complex128Decoder = complexDecoder(128)
+	float32Decoder    = floatDecoder(32)
+	float64Decoder    = floatDecoder(64)
+)
+
+func intDecoder(v reflect.Value, s string) (err error) {
+	var x int64
+	if x, err = strconv.ParseInt(s, 10, 64); err == nil {
+		v.SetInt(x)
+	}
+	return
+}
+
+func ptrDecoder(decode valueDecoder) valueDecoder {
+	return func(v reflect.Value, s string) (err error) {
+		if s == "" {
+			return
+		}
+		for v.Type().Kind() == reflect.Ptr {
+			t := v.Type().Elem()
+			v.Set(reflect.New(t))
+			v = v.Elem()
+		}
+		return decode(v, s)
+	}
+}
+
+var (
+	byteSlicePtrDecoder  = ptrDecoder(byteSliceDecoder)
+	boolPtrDecoder       = ptrDecoder(boolDecoder)
+	complex64PtrDecoder  = ptrDecoder(complex64Decoder)
+	complex128PtrDecoder = ptrDecoder(complex128Decoder)
+	float32PtrDecoder    = ptrDecoder(float32Decoder)
+	float64PtrDecoder    = ptrDecoder(float64Decoder)
+	intPtrDecoder        = ptrDecoder(intDecoder)
+	stringPtrDecoder     = ptrDecoder(stringDecoder)
+	textPtrDecoder       = ptrDecoder(textDecoder)
+	uintPtrDecoder       = ptrDecoder(uintDecoder)
+)
+
+func stringDecoder(v reflect.Value, s string) (err error) {
+	v.SetString(s)
+	return
+}
+
+func uintDecoder(v reflect.Value, s string) (err error) {
+	var x uint64
+	if x, err = strconv.ParseUint(s, 10, 64); err == nil {
+		v.SetUint(x)
+	}
+	return
+}
+
+func byteSliceDecoder(v reflect.Value, s string) (err error) {
+	v.SetBytes([]byte(s))
+	return
+}
+
+func textDecoder(v reflect.Value, s string) (err error) {
+	return v.Addr().Interface().(encoding.TextUnmarshaler).UnmarshalText([]byte(s))
+}
+
+func mapValueDecoder(t reflect.Type, name string) (valueDecoder, error) {
 	if reflect.PtrTo(t).Implements(textUnmarshalerType) {
-		return textUnmarshaler
+		return textDecoder, nil
 	}
 
-	switch k := t.Kind(); k {
-	case reflect.Bool, reflect.String:
-		return k
-	case reflect.Complex64, reflect.Complex128:
-		return reflect.Complex128
+	switch t.Kind() {
+	case reflect.Bool:
+		return boolDecoder, nil
+	case reflect.Complex64:
+		return complex64Decoder, nil
+	case reflect.Complex128:
+		return complex128Decoder, nil
+	case reflect.Float32:
+		return float32Decoder, nil
+	case reflect.Float64:
+		return float64Decoder, nil
 	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		return reflect.Int64
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		return reflect.Uint64
-	case reflect.Float32, reflect.Float64:
-		return reflect.Float64
+		return intDecoder, nil
 	case reflect.Ptr:
-		if kindOf(t.Elem()) != reflect.Invalid {
-			return reflect.Ptr
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
 		}
+		if reflect.PtrTo(t).Implements(textUnmarshalerType) {
+			return textPtrDecoder, nil
+		}
+		switch t.Kind() {
+		case reflect.Bool:
+			return boolPtrDecoder, nil
+		case reflect.Complex64:
+			return complex64PtrDecoder, nil
+		case reflect.Complex128:
+			return complex128PtrDecoder, nil
+		case reflect.Float32:
+			return float32PtrDecoder, nil
+		case reflect.Float64:
+			return float64PtrDecoder, nil
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+			return intPtrDecoder, nil
+		case reflect.String:
+			return stringPtrDecoder, nil
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+			return uintPtrDecoder, nil
+		}
+		if t.ConvertibleTo(byteSliceType) {
+			return byteSlicePtrDecoder, nil
+		}
+		return nil, fmt.Errorf("cannot decode field '%s'", name)
+	case reflect.String:
+		return stringDecoder, nil
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		return uintDecoder, nil
 	}
 
 	if t.ConvertibleTo(byteSliceType) {
-		return byteSlice
+		return byteSliceDecoder, nil
 	}
 
-	return reflect.Invalid
+	return nil, fmt.Errorf("cannot decode field '%s'", name)
 }
 
-func valueOf(v interface{}) (vv reflect.Value, err error) {
-	if v == nil {
-		err = ErrInvalidType
-	} else if vv = reflect.ValueOf(v); vv.IsNil() {
-		err = ErrInvalidType
+type valueEncoder func(reflect.Value) (string, error)
+
+func boolEncoder(v reflect.Value) (string, error) {
+	return strconv.FormatBool(v.Bool()), nil
+}
+
+func complexEncoder(bitSize int) valueEncoder {
+	return func(v reflect.Value) (string, error) {
+		return strconv.FormatComplex(v.Complex(), 'f', -1, bitSize), nil
+	}
+}
+
+func floatEncoder(bitSize int) valueEncoder {
+	return func(v reflect.Value) (string, error) {
+		return strconv.FormatFloat(v.Float(), 'f', -1, 32), nil
+	}
+}
+
+var (
+	complex64Encoder  = complexEncoder(64)
+	complex128Encoder = complexEncoder(128)
+	float32Encoder    = floatEncoder(32)
+	float64Encoder    = floatEncoder(64)
+)
+
+func intEncoder(v reflect.Value) (string, error) {
+	return strconv.FormatInt(v.Int(), 10), nil
+}
+
+func ptrEncoder(encode valueEncoder) valueEncoder {
+	return func(v reflect.Value) (string, error) {
+		for v.Type().Kind() == reflect.Ptr {
+			if v.IsNil() {
+				return "", nil
+			}
+			v = v.Elem()
+		}
+		return encode(v)
+	}
+}
+
+var (
+	byteSlicePtrEncoder  = ptrEncoder(byteSliceEncoder)
+	boolPtrEncoder       = ptrEncoder(boolEncoder)
+	complex64PtrEncoder  = ptrEncoder(complex64Encoder)
+	complex128PtrEncoder = ptrEncoder(complex128Encoder)
+	float32PtrEncoder    = ptrEncoder(float32Encoder)
+	float64PtrEncoder    = ptrEncoder(float64Encoder)
+	intPtrEncoder        = ptrEncoder(intEncoder)
+	stringPtrEncoder     = ptrEncoder(stringEncoder)
+	textPtrEncoder       = ptrEncoder(textEncoder)
+	uintPtrEncoder       = ptrEncoder(uintEncoder)
+)
+
+func stringEncoder(v reflect.Value) (string, error) {
+	return v.String(), nil
+}
+
+func uintEncoder(v reflect.Value) (string, error) {
+	return strconv.FormatUint(v.Uint(), 10), nil
+}
+
+func byteSliceEncoder(v reflect.Value) (string, error) {
+	return string(v.Bytes()), nil
+}
+
+func textEncoder(v reflect.Value) (s string, err error) {
+	text, err := v.Addr().Interface().(encoding.TextMarshaler).MarshalText()
+	return string(text), err
+}
+
+func mapValueEncoder(t reflect.Type, name string) (valueEncoder, error) {
+	if reflect.PtrTo(t).Implements(textMarshalerType) {
+		return textEncoder, nil
+	}
+
+	switch t.Kind() {
+	case reflect.Bool:
+		return boolEncoder, nil
+	case reflect.Complex64:
+		return complex64Encoder, nil
+	case reflect.Complex128:
+		return complex128Encoder, nil
+	case reflect.Float32:
+		return float32Encoder, nil
+	case reflect.Float64:
+		return float64Encoder, nil
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+		return intEncoder, nil
+	case reflect.Ptr:
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		if reflect.PtrTo(t).Implements(textMarshalerType) {
+			return textPtrEncoder, nil
+		}
+		switch t.Kind() {
+		case reflect.Bool:
+			return boolPtrEncoder, nil
+		case reflect.Complex64:
+			return complex64PtrEncoder, nil
+		case reflect.Complex128:
+			return complex128PtrEncoder, nil
+		case reflect.Float32:
+			return float32PtrEncoder, nil
+		case reflect.Float64:
+			return float64PtrEncoder, nil
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+			return intPtrEncoder, nil
+		case reflect.String:
+			return stringPtrEncoder, nil
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+			return uintPtrEncoder, nil
+		}
+		if t.ConvertibleTo(byteSliceType) {
+			return byteSlicePtrEncoder, nil
+		}
+		return nil, fmt.Errorf("cannot encode field '%s'", name)
+	case reflect.String:
+		return stringEncoder, nil
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		return uintEncoder, nil
+	}
+
+	if t.ConvertibleTo(byteSliceType) {
+		return byteSliceEncoder, nil
+	}
+
+	return nil, fmt.Errorf("cannot encode field '%s'", name)
+}
+
+type structField struct {
+	Index  []int
+	Name   string
+	Decode valueDecoder
+	Encode valueEncoder
+}
+
+func valueOf(i interface{}) (v reflect.Value, err error) {
+	if i == nil {
+		err = ErrInvalidArgument
+	} else if v = reflect.ValueOf(i); v.IsNil() {
+		err = ErrInvalidArgument
 	}
 	return
 }
@@ -85,14 +339,19 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 				if _, exists := names[name]; exists {
 					return nil, fmt.Errorf("duplicate field name '%s'", name)
 				}
-				kind := kindOf(field.Type)
-				if kind == reflect.Invalid {
-					return nil, fmt.Errorf("cannot decode field of type '%s'", field.Type)
+				decoder, err := mapValueDecoder(field.Type, name)
+				if err != nil {
+					return nil, err
+				}
+				encoder, err := mapValueEncoder(field.Type, name)
+				if err != nil {
+					return nil, err
 				}
 				fields = append(fields, structField{
-					Index: field.Index,
-					Kind:  kind,
-					Name:  name,
+					Index:  field.Index,
+					Decode: decoder,
+					Encode: encoder,
+					Name:   name,
 				})
 				names[name] = struct{}{}
 			}
@@ -116,17 +375,30 @@ func innerTypeOf(t reflect.Type, kinds ...reflect.Kind) reflect.Type {
 	return t
 }
 
-// Header inspects a struct and returns a header based on its fields which can be used by Decoder.
-// An error is returned if a struct field is of an unsuitable type.
-//
-//  type A struct {
-//    // some fields
-//  }
-//  header, err := Header(A{})
-func Header(v interface{}) ([]string, error) {
-	if t := reflect.TypeOf(v); t.Kind() != reflect.Struct {
-		return nil, ErrInvalidType
-	} else if fields, err := structFieldsOf(t); err != nil {
+func headerIndices(header []string, fields []structField) (indices []int, err error) {
+	// check for duplicate header names
+	names := map[string]struct{}{}
+	for _, h := range header {
+		if _, exists := names[h]; exists {
+			return nil, fmt.Errorf("duplicate header name '%s'", h)
+		}
+		names[h] = struct{}{}
+	}
+
+	// for every column in header, find index of struct field with matching name
+	for i, col := range header {
+		for j, field := range fields {
+			if field.Name == col {
+				indices = append(indices, i, j)
+			}
+		}
+	}
+
+	return
+}
+
+func headerOf(t reflect.Type) ([]string, error) {
+	if fields, err := structFieldsOf(t); err != nil {
 		return nil, err
 	} else {
 		header := make([]string, len(fields))
@@ -135,13 +407,4 @@ func Header(v interface{}) ([]string, error) {
 		}
 		return header, nil
 	}
-}
-
-// MustHeader is like Header except it panics if there is an error.
-func MustHeader(v interface{}) []string {
-	header, err := Header(v)
-	if err != nil {
-		panic(err.Error())
-	}
-	return header
 }

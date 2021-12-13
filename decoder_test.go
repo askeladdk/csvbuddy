@@ -18,9 +18,14 @@ func (u *uppercase) UnmarshalText(b []byte) error {
 	return nil
 }
 
-var _ encoding.TextUnmarshaler = (*uppercase)(nil)
+func (u *uppercase) MarshalText() ([]byte, error) {
+	return []byte(*u), nil
+}
 
-type teststruc struct {
+var _ encoding.TextUnmarshaler = (*uppercase)(nil)
+var _ encoding.TextMarshaler = (*uppercase)(nil)
+
+type testStruct struct {
 	A []byte     `csv:"bytes"`
 	B bool       `csv:"bool"`
 	C complex128 `csv:"complex"`
@@ -38,12 +43,12 @@ func TestDecode(t *testing.T) {
 		"true,hello,1+1i,3.1415,-173,0,hello world,1337,gopher",
 	}, "\n")
 
-	var data []teststruc
+	var data []testStruct
 	if err := Unmarshal([]byte(testdata), &data); err != nil {
 		t.Fatal(err)
 	}
 
-	expect := []teststruc{
+	expect := []testStruct{
 		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
 	}
 
@@ -58,15 +63,15 @@ func TestDecodeFunc(t *testing.T) {
 		"true,hello,1+1i,3.1415,-173,0,hello world,1337,gopher",
 	}, "\n")
 
-	var data []teststruc
-	if err := NewDecoder(strings.NewReader(testdata)).DecodeFunc(func(s *teststruc) error {
+	var data []testStruct
+	if err := NewDecoder(strings.NewReader(testdata)).DecodeFunc(func(s *testStruct) error {
 		data = append(data, *s)
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	expect := []teststruc{
+	expect := []testStruct{
 		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
 	}
 
@@ -76,18 +81,18 @@ func TestDecodeFunc(t *testing.T) {
 }
 
 func TestDecodeHeaderless(t *testing.T) {
-	testdata := "true,hello,1+1i,3.1415,-173,0,hello world,1337,gopher"
+	testdata := "hello,true,1+1i,3.1415,-173,0,hello world,gopher,1337"
 
-	var data []teststruc
+	var data []testStruct
 
 	d := NewDecoder(strings.NewReader(testdata))
-	d.SetHeader(strings.Split("bool,bytes,complex,float,int,optional,string,uint,uppercase", ","))
+	d.SkipHeader()
 
 	if err := d.Decode(&data); err != nil {
 		t.Fatal(err)
 	}
 
-	expect := []teststruc{
+	expect := []testStruct{
 		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
 	}
 
@@ -108,38 +113,10 @@ func TestDecodeDisallowUnknownFields(t *testing.T) {
 
 	d := NewDecoder(strings.NewReader(testdata))
 	d.DisallowUnknownFields()
-	d.SetHeader(MustHeader(struc{}))
+	d.SkipHeader()
 
 	if err := d.Decode(&data); !errors.Is(err, csv.ErrFieldCount) {
 		t.Fatal("should be error")
-	}
-}
-
-func TestDecodeSkipInvalidRows(t *testing.T) {
-	type struc struct {
-		B bool
-		S string
-	}
-
-	testdata := "2,hello\nfalse,world"
-
-	var data []struc
-
-	d := NewDecoder(strings.NewReader(testdata))
-	d.SkipInvalidRows()
-	d.SetHeader(MustHeader(struc{}))
-
-	if err := d.Decode(&data); err != nil {
-		t.Fatal(err)
-	}
-
-	expect := []struc{{false, "world"}}
-	if !reflect.DeepEqual(data, expect) {
-		t.Fatal("not equal")
-	}
-
-	if len(d.Errors()) != 1 || !errors.Is(d.Errors()[0], strconv.ErrSyntax) {
-		t.Fatal("expected NumError")
 	}
 }
 
@@ -154,7 +131,7 @@ func TestDecodeSyntaxError(t *testing.T) {
 	var data []struc
 
 	d := NewDecoder(strings.NewReader(testdata))
-	d.SetHeader(MustHeader(struc{}))
+	d.SkipHeader()
 
 	if err := d.Decode(&data); !errors.Is(err, strconv.ErrSyntax) {
 		t.Fatal("expected syntax error", err)
@@ -172,7 +149,7 @@ func TestDecodeOptionalFields(t *testing.T) {
 	var data []struc
 
 	d := NewDecoder(strings.NewReader(testdata))
-	d.SetHeader(MustHeader(struc{}))
+	d.SkipHeader()
 
 	if err := d.Decode(&data); err != nil {
 		t.Fatal(err)
@@ -183,7 +160,7 @@ func TestDecodeOptionalFields(t *testing.T) {
 	}
 }
 
-func TestCleanerFunc(t *testing.T) {
+func TestDecoderMapfunc(t *testing.T) {
 	type struc struct {
 		A int
 		B float64
@@ -194,8 +171,8 @@ func TestCleanerFunc(t *testing.T) {
 	var data []struc
 
 	d := NewDecoder(strings.NewReader(testdata))
-	d.SetHeader(MustHeader(struc{}))
-	d.SetCleanerFunc(func(column, field string) string {
+	d.SkipHeader()
+	d.SetMapFunc(func(column, field string) string {
 		if column == "A" && field == "" {
 			return "0"
 		} else if column == "B" && field == "n/a" {
