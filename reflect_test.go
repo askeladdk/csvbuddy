@@ -52,11 +52,13 @@ func TestStructFieldsOf(t *testing.T) {
 			Index: []int{0},
 			// Decode: intDecoder,
 			Name: "a",
+			Base: 10,
 		},
 		{
 			Index: []int{2},
 			// Decode: textDecoder,
 			Name: "C",
+			Base: 10,
 		},
 	}
 
@@ -150,11 +152,12 @@ func TestValueDecoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), &uval},
 	}
 
+	field := structField{Base: 10}
 	for _, testCase := range testCases {
 		v := reflect.New(testCase.Type)
 		if decoder, err := mapValueDecoder(testCase.Type, ""); err != nil {
 			t.Error(testCase.String, err)
-		} else if err := decoder(v.Elem(), testCase.String); err != nil {
+		} else if err := decoder(v.Elem(), testCase.String, &field); err != nil {
 			t.Error(testCase.String, err)
 		} else if !reflect.DeepEqual(v.Elem().Interface(), testCase.Expected) {
 			t.Error(testCase.String, "not equal", v.Elem(), testCase.Expected)
@@ -197,13 +200,40 @@ func TestValueEncoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), uint(1337)},
 	}
 
+	field := structField{Base: 10}
 	for _, testCase := range testCases {
 		if encoder, err := mapValueEncoder(testCase.Type, ""); err != nil {
 			t.Error(testCase.Type, err)
-		} else if val, err := encoder(reflect.ValueOf(testCase.Value)); err != nil {
+		} else if val, err := encoder(reflect.ValueOf(testCase.Value), &field); err != nil {
 			t.Error(testCase.Type, err)
 		} else if val != testCase.Expected {
 			t.Error(testCase.Type, "not equal", val, testCase.Expected)
+		}
+	}
+}
+
+func TestParseTag(t *testing.T) {
+	testcases := []struct {
+		Tag  string
+		Name string
+		Base int
+	}{
+		{"", "", 0},
+		{",", "", 0},
+		{"my_field", "my_field", 0},
+		{",base=5", "", 5},
+		{"-,base=3", "-", 3},
+		{"my_field,base=16", "my_field", 16},
+		{"my_field,base=16,base=2", "my_field", 2},
+		{"my_field,something,,base=", "my_field", 0},
+	}
+	for _, testcase := range testcases {
+		name, base := parseTag(testcase.Tag)
+		if name != testcase.Name {
+			t.Error(testcase.Tag, name, "!=", testcase.Name)
+		}
+		if base != testcase.Base {
+			t.Error(testcase.Tag, base, "!=", testcase.Base)
 		}
 	}
 }

@@ -34,7 +34,7 @@ type testStruct struct {
 	O *int       `csv:"optional"`
 	S string     `csv:"string"`
 	T uppercase  `csv:"uppercase"`
-	U uint       `csv:"uint"`
+	U uint       `csv:"uint,base=16"`
 }
 
 func TestDecode(t *testing.T) {
@@ -49,7 +49,7 @@ func TestDecode(t *testing.T) {
 	}
 
 	expect := []testStruct{
-		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
+		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 4919},
 	}
 
 	if !reflect.DeepEqual(data, expect) {
@@ -72,7 +72,7 @@ func TestDecodeFunc(t *testing.T) {
 	}
 
 	expect := []testStruct{
-		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
+		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 4919},
 	}
 
 	if !reflect.DeepEqual(data, expect) {
@@ -93,7 +93,7 @@ func TestDecodeHeaderless(t *testing.T) {
 	}
 
 	expect := []testStruct{
-		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 1337},
+		{[]byte("hello"), true, 1 + 1i, 3.1415, -173, new(int), "hello world", "GOPHER", 4919},
 	}
 
 	if !reflect.DeepEqual(data, expect) {

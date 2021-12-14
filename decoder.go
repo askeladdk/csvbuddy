@@ -87,7 +87,7 @@ func (d *Decoder) decodeFunc(structType reflect.Type, fn func(reflect.Value) err
 			fieldval := structval.Elem().FieldByIndex(field.Index)
 			// clean the value string and type convert it
 			value = d.mapFunc(field.Name, value)
-			if err = field.Decode(fieldval, value); err != nil {
+			if err = field.Decode(fieldval, value, &field); err != nil {
 				if fieldidx >= len(record) {
 					fieldidx = 1
 				}

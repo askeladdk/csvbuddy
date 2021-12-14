@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -18,9 +19,9 @@ var (
 	structLock  sync.Mutex
 )
 
-type valueDecoder func(reflect.Value, string) error
+type valueDecoder func(reflect.Value, string, *structField) error
 
-func boolDecoder(v reflect.Value, s string) (err error) {
+func boolDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	var x bool
 	if x, err = strconv.ParseBool(s); err == nil {
 		v.SetBool(x)
@@ -29,7 +30,7 @@ func boolDecoder(v reflect.Value, s string) (err error) {
 }
 
 func complexDecoder(bitSize int) valueDecoder {
-	return func(v reflect.Value, s string) (err error) {
+	return func(v reflect.Value, s string, _ *structField) (err error) {
 		var x complex128
 		if x, err = strconv.ParseComplex(s, bitSize); err == nil {
 			v.SetComplex(x)
@@ -39,7 +40,7 @@ func complexDecoder(bitSize int) valueDecoder {
 }
 
 func floatDecoder(bitSize int) valueDecoder {
-	return func(v reflect.Value, s string) (err error) {
+	return func(v reflect.Value, s string, _ *structField) (err error) {
 		var x float64
 		if x, err = strconv.ParseFloat(s, bitSize); err == nil {
 			v.SetFloat(x)
@@ -55,16 +56,16 @@ var (
 	float64Decoder    = floatDecoder(64)
 )
 
-func intDecoder(v reflect.Value, s string) (err error) {
+func intDecoder(v reflect.Value, s string, field *structField) (err error) {
 	var x int64
-	if x, err = strconv.ParseInt(s, 10, 64); err == nil {
+	if x, err = strconv.ParseInt(s, field.Base, 64); err == nil {
 		v.SetInt(x)
 	}
 	return
 }
 
 func ptrDecoder(decode valueDecoder) valueDecoder {
-	return func(v reflect.Value, s string) (err error) {
+	return func(v reflect.Value, s string, field *structField) (err error) {
 		if s == "" {
 			return
 		}
@@ -73,7 +74,7 @@ func ptrDecoder(decode valueDecoder) valueDecoder {
 			v.Set(reflect.New(t))
 			v = v.Elem()
 		}
-		return decode(v, s)
+		return decode(v, s, field)
 	}
 }
 
@@ -90,25 +91,25 @@ var (
 	uintPtrDecoder       = ptrDecoder(uintDecoder)
 )
 
-func stringDecoder(v reflect.Value, s string) (err error) {
+func stringDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	v.SetString(s)
 	return
 }
 
-func uintDecoder(v reflect.Value, s string) (err error) {
+func uintDecoder(v reflect.Value, s string, field *structField) (err error) {
 	var x uint64
-	if x, err = strconv.ParseUint(s, 10, 64); err == nil {
+	if x, err = strconv.ParseUint(s, field.Base, 64); err == nil {
 		v.SetUint(x)
 	}
 	return
 }
 
-func byteSliceDecoder(v reflect.Value, s string) (err error) {
+func byteSliceDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	v.SetBytes([]byte(s))
 	return
 }
 
-func textDecoder(v reflect.Value, s string) (err error) {
+func textDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	return v.Addr().Interface().(encoding.TextUnmarshaler).UnmarshalText([]byte(s))
 }
 
@@ -172,20 +173,20 @@ func mapValueDecoder(t reflect.Type, name string) (valueDecoder, error) {
 	return nil, fmt.Errorf("cannot decode field '%s'", name)
 }
 
-type valueEncoder func(reflect.Value) (string, error)
+type valueEncoder func(reflect.Value, *structField) (string, error)
 
-func boolEncoder(v reflect.Value) (string, error) {
+func boolEncoder(v reflect.Value, _ *structField) (string, error) {
 	return strconv.FormatBool(v.Bool()), nil
 }
 
 func complexEncoder(bitSize int) valueEncoder {
-	return func(v reflect.Value) (string, error) {
+	return func(v reflect.Value, field *structField) (string, error) {
 		return strconv.FormatComplex(v.Complex(), 'f', -1, bitSize), nil
 	}
 }
 
 func floatEncoder(bitSize int) valueEncoder {
-	return func(v reflect.Value) (string, error) {
+	return func(v reflect.Value, field *structField) (string, error) {
 		return strconv.FormatFloat(v.Float(), 'f', -1, 32), nil
 	}
 }
@@ -197,19 +198,19 @@ var (
 	float64Encoder    = floatEncoder(64)
 )
 
-func intEncoder(v reflect.Value) (string, error) {
-	return strconv.FormatInt(v.Int(), 10), nil
+func intEncoder(v reflect.Value, field *structField) (string, error) {
+	return strconv.FormatInt(v.Int(), field.Base), nil
 }
 
 func ptrEncoder(encode valueEncoder) valueEncoder {
-	return func(v reflect.Value) (string, error) {
+	return func(v reflect.Value, field *structField) (string, error) {
 		for v.Type().Kind() == reflect.Ptr {
 			if v.IsNil() {
 				return "", nil
 			}
 			v = v.Elem()
 		}
-		return encode(v)
+		return encode(v, field)
 	}
 }
 
@@ -226,19 +227,19 @@ var (
 	uintPtrEncoder       = ptrEncoder(uintEncoder)
 )
 
-func stringEncoder(v reflect.Value) (string, error) {
+func stringEncoder(v reflect.Value, _ *structField) (string, error) {
 	return v.String(), nil
 }
 
-func uintEncoder(v reflect.Value) (string, error) {
-	return strconv.FormatUint(v.Uint(), 10), nil
+func uintEncoder(v reflect.Value, field *structField) (string, error) {
+	return strconv.FormatUint(v.Uint(), field.Base), nil
 }
 
-func byteSliceEncoder(v reflect.Value) (string, error) {
+func byteSliceEncoder(v reflect.Value, _ *structField) (string, error) {
 	return string(v.Bytes()), nil
 }
 
-func textEncoder(v reflect.Value) (s string, err error) {
+func textEncoder(v reflect.Value, _ *structField) (s string, err error) {
 	text, err := v.Addr().Interface().(encoding.TextMarshaler).MarshalText()
 	return string(text), err
 }
@@ -306,6 +307,7 @@ func mapValueEncoder(t reflect.Type, name string) (valueEncoder, error) {
 type structField struct {
 	Index  []int
 	Name   string
+	Base   int
 	Decode valueDecoder
 	Encode valueEncoder
 }
@@ -315,6 +317,30 @@ func valueOf(i interface{}) (v reflect.Value, err error) {
 		err = ErrInvalidArgument
 	} else if v = reflect.ValueOf(i); v.IsNil() {
 		err = ErrInvalidArgument
+	}
+	return
+}
+
+func parseTag(tag string) (name string, base int) {
+	// parse the name
+	if i := strings.IndexByte(tag, ','); i == -1 {
+		name = tag
+		return
+	} else {
+		name, tag = tag[:i], tag[i+1:]
+	}
+	// parse the other parameters
+	var val string
+	for tag != "" {
+		if i := strings.IndexByte(tag, ','); i == -1 {
+			val, tag = tag, ""
+		} else {
+			val, tag = tag[:i], tag[i+1:]
+		}
+		// parse integer base base=N
+		if strings.HasPrefix(val, "base=") {
+			base, _ = strconv.Atoi(val[5:])
+		}
 	}
 	return
 }
@@ -331,9 +357,16 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 
 	for i := 0; i < t.NumField(); i++ {
 		if field := t.Field(i); field.IsExported() {
-			name := field.Name
+			var name string
+			var base int
 			if tag, ok := field.Tag.Lookup("csv"); ok {
-				name = tag
+				name, base = parseTag(tag)
+			}
+			if name == "" {
+				name = field.Name
+			}
+			if base == 0 {
+				base = 10
 			}
 			if name != "-" {
 				if _, exists := names[name]; exists {
@@ -349,9 +382,10 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 				}
 				fields = append(fields, structField{
 					Index:  field.Index,
+					Name:   name,
+					Base:   base,
 					Decode: decoder,
 					Encode: encoder,
-					Name:   name,
 				})
 				names[name] = struct{}{}
 			}
