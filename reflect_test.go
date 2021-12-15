@@ -2,6 +2,7 @@ package csvbuddy
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -270,5 +271,13 @@ func TestEmbeddedStruct(t *testing.T) {
 	}
 	if string(text) != "A,B,C\n1101,-100,1\n1001,-200,2\n" {
 		t.Fatal(string(text))
+	}
+}
+
+func TestHeader(t *testing.T) {
+	type X struct{ A, B int }
+	h, _ := Header((*[]X)(nil))
+	if strings.Join(h, ",") != "A,B" {
+		t.Fatal(h)
 	}
 }

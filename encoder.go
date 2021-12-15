@@ -11,6 +11,7 @@ type Encoder struct {
 	writer     io.Writer
 	writerFunc WriterFunc
 	mapFunc    MapFunc
+	header     []string
 	skipHeader bool
 }
 
@@ -37,7 +38,9 @@ func (e *Encoder) Encode(v interface{}) (err error) {
 	}
 
 	var header []string
-	if header, err = headerOf(structType); err != nil {
+	if len(e.header) > 0 {
+		header = e.header
+	} else if header, err = headerOf(structType); err != nil {
 		return
 	}
 
@@ -89,6 +92,9 @@ func (e *Encoder) Encode(v interface{}) (err error) {
 
 	return nil
 }
+
+// SetHeader causes the Encoder to change the order in which fields are encoded.
+func (e *Encoder) SetHeader(h []string) { e.header = h }
 
 // SetMapFunc causes the Encoder to call fn on every field before a record is written.
 func (e *Encoder) SetMapFunc(fn MapFunc) { e.mapFunc = fn }

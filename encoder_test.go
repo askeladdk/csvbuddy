@@ -28,11 +28,13 @@ func TestEncode(t *testing.T) {
 		return value
 	})
 
+	e.SetHeader([]string{"B", "A", "C"})
+
 	if err := e.Encode(&data); err != nil {
 		t.Fatal(err)
 	}
 
-	if b.String() != "A,B,C\nabc,1,\"0,1\"\ndef,2,\"0,2\"\nghi,3,\"0,3\"\n" {
+	if b.String() != "B,A,C\n1,abc,\"0,1\"\n2,def,\"0,2\"\n3,ghi,\"0,3\"\n" {
 		t.Fatal(b.String())
 	}
 }

@@ -523,3 +523,9 @@ func headerOf(t reflect.Type) ([]string, error) {
 		return header, nil
 	}
 }
+
+// Header returns the header of v, which must be a pointer to a slice of structs.
+func Header(v interface{}) ([]string, error) {
+	t := innerTypeOf(reflect.TypeOf(v), reflect.Ptr, reflect.Slice, reflect.Struct)
+	return headerOf(t)
+}
