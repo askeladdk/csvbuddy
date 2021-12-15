@@ -513,15 +513,15 @@ func headerIndices(header []string, fields []structField) (indices []int, err er
 }
 
 func headerOf(t reflect.Type) ([]string, error) {
-	if fields, err := structFieldsOf(t); err != nil {
+	fields, err := structFieldsOf(t)
+	if err != nil {
 		return nil, err
-	} else {
-		header := make([]string, len(fields))
-		for i, field := range fields {
-			header[i] = field.Name
-		}
-		return header, nil
 	}
+	header := make([]string, len(fields))
+	for i, field := range fields {
+		header[i] = field.Name
+	}
+	return header, nil
 }
 
 // Header returns the header of v, which must be a pointer to a slice of structs.
