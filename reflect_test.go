@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-func ptrTo(i interface{}) uintptr {
-	return reflect.ValueOf(i).Pointer()
-}
-
 func checkValueOf(t *testing.T, have interface{}, expect error) {
 	if _, err := valueOf(have); err != expect {
 		t.Error(have, err)
@@ -50,20 +46,14 @@ func TestStructFieldsOf(t *testing.T) {
 
 	expected := []structField{
 		{
-			Index: []int{0},
-			// Decode: intDecoder,
-			Name: "a",
-			Base: 10,
-			Prec: -1,
-			Fmt:  'f',
+			Index:     []int{0},
+			Name:      "a",
+			converter: &intCodec{64, 10},
 		},
 		{
-			Index: []int{2},
-			// Decode: textDecoder,
-			Name: "C",
-			Base: 10,
-			Prec: -1,
-			Fmt:  'f',
+			Index:     []int{2},
+			Name:      "C",
+			converter: &ptrCodec{&intCodec{64, 10}},
 		},
 	}
 
@@ -71,22 +61,6 @@ func TestStructFieldsOf(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// stupid workaround for DeepEqual being unable to compare funcs
-	// even though they are comparable by address
-	if ptrTo(fields[0].Decode) != ptrTo(int64Decoder) {
-		t.Fatal("not equal")
-	} else if ptrTo(fields[1].Decode) != ptrTo(int64PtrDecoder) {
-		t.Fatal("not equal")
-	} else if ptrTo(fields[0].Encode) != ptrTo(intEncoder) {
-		t.Fatal("not equal")
-	} else if ptrTo(fields[1].Encode) != ptrTo(intPtrEncoder) {
-		t.Fatal("not equal")
-	}
-	fields[0].Decode = nil
-	fields[1].Decode = nil
-	fields[0].Encode = nil
-	fields[1].Encode = nil
 
 	if !reflect.DeepEqual(expected, fields) {
 		t.Error("not equal")
@@ -157,12 +131,11 @@ func TestValueDecoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), &uval},
 	}
 
-	field := structField{Base: 10, Prec: -1, Fmt: 'f'}
 	for _, testCase := range testCases {
 		v := reflect.New(testCase.Type)
-		if decoder, err := mapValueDecoder(testCase.Type, ""); err != nil {
+		if codec, err := newValueConverter(testCase.Type, "", 10, -1, 'f'); err != nil {
 			t.Error(testCase.String, err)
-		} else if err := decoder(v.Elem(), testCase.String, &field); err != nil {
+		} else if err := codec.Decode(v.Elem(), testCase.String); err != nil {
 			t.Error(testCase.String, err)
 		} else if !reflect.DeepEqual(v.Elem().Interface(), testCase.Expected) {
 			t.Error(testCase.String, "not equal", v.Elem(), testCase.Expected)
@@ -205,11 +178,10 @@ func TestValueEncoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), uint(1337)},
 	}
 
-	field := structField{Base: 10, Prec: -1, Fmt: 'f'}
 	for _, testCase := range testCases {
-		if encoder, err := mapValueEncoder(testCase.Type, ""); err != nil {
+		if codec, err := newValueConverter(testCase.Type, "", 10, -1, 'f'); err != nil {
 			t.Error(testCase.Type, err)
-		} else if val, err := encoder(reflect.ValueOf(testCase.Value), &field); err != nil {
+		} else if val, err := codec.Encode(reflect.ValueOf(testCase.Value)); err != nil {
 			t.Error(testCase.Type, err)
 		} else if val != testCase.Expected {
 			t.Error(testCase.Type, "not equal", val, testCase.Expected)

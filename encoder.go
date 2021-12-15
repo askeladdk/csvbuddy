@@ -68,7 +68,7 @@ func (e *Encoder) Encode(v interface{}) (err error) {
 			field := fields[indices[j+1]]
 			fieldval := structval.FieldByIndex(field.Index)
 			var value string
-			if value, err = field.Encode(fieldval, &field); err != nil {
+			if value, err = field.Encode(fieldval); err != nil {
 				return
 			}
 			record[indices[j]] = e.mapFunc(field.Name, value)
