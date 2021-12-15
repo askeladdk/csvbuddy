@@ -181,13 +181,13 @@ func boolEncoder(v reflect.Value, _ *structField) (string, error) {
 
 func complexEncoder(bitSize int) valueEncoder {
 	return func(v reflect.Value, field *structField) (string, error) {
-		return strconv.FormatComplex(v.Complex(), 'f', -1, bitSize), nil
+		return strconv.FormatComplex(v.Complex(), field.Fmt, field.Prec, bitSize), nil
 	}
 }
 
 func floatEncoder(bitSize int) valueEncoder {
 	return func(v reflect.Value, field *structField) (string, error) {
-		return strconv.FormatFloat(v.Float(), 'f', -1, 32), nil
+		return strconv.FormatFloat(v.Float(), field.Fmt, field.Prec, bitSize), nil
 	}
 }
 
@@ -305,11 +305,13 @@ func mapValueEncoder(t reflect.Type, name string) (valueEncoder, error) {
 }
 
 type structField struct {
-	Index  []int
-	Name   string
-	Base   int
-	Decode valueDecoder
-	Encode valueEncoder
+	Index  []int        // struct field index
+	Name   string       // column name
+	Base   int          // integer base
+	Prec   int          // floating point precision
+	Fmt    byte         // floating point format
+	Decode valueDecoder // decoder func
+	Encode valueEncoder // encoder func
 }
 
 func valueOf(i interface{}) (v reflect.Value, err error) {
@@ -321,7 +323,8 @@ func valueOf(i interface{}) (v reflect.Value, err error) {
 	return
 }
 
-func parseTag(tag string) (name string, base int) {
+func parseTag(tag string) (name string, base, prec int, fmt byte) {
+	base, prec, fmt = 10, -1, 'f'
 	// parse the name
 	if i := strings.IndexByte(tag, ','); i == -1 {
 		name = tag
@@ -337,9 +340,21 @@ func parseTag(tag string) (name string, base int) {
 		} else {
 			val, tag = tag[:i], tag[i+1:]
 		}
-		// parse integer base base=N
-		if strings.HasPrefix(val, "base=") {
-			base, _ = strconv.Atoi(val[5:])
+		switch {
+		case strings.HasPrefix(val, "base="): // integer base
+			if n, err := strconv.Atoi(val[5:]); err == nil {
+				base = n
+			}
+		case strings.HasPrefix(val, "prec="): // floating point precision
+			if n, err := strconv.Atoi(val[5:]); err == nil {
+				prec = n
+			}
+		case strings.HasPrefix(val, "fmt="): // floating point format
+			if len(val) >= 4 {
+				if c := val[4]; strings.IndexByte("beEfgGxX", c) >= 0 {
+					fmt = c
+				}
+			}
 		}
 	}
 	return
@@ -358,15 +373,14 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 	for i := 0; i < t.NumField(); i++ {
 		if field := t.Field(i); field.IsExported() {
 			var name string
-			var base int
+			var base, prec int
+			var ffmt byte
+			base, prec, ffmt = 10, -1, 'f'
 			if tag, ok := field.Tag.Lookup("csv"); ok {
-				name, base = parseTag(tag)
+				name, base, prec, ffmt = parseTag(tag)
 			}
 			if name == "" {
 				name = field.Name
-			}
-			if base == 0 {
-				base = 10
 			}
 			if name != "-" {
 				if _, exists := names[name]; exists {
@@ -384,6 +398,8 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 					Index:  field.Index,
 					Name:   name,
 					Base:   base,
+					Prec:   prec,
+					Fmt:    ffmt,
 					Decode: decoder,
 					Encode: encoder,
 				})

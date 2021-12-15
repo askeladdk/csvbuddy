@@ -53,12 +53,16 @@ func TestStructFieldsOf(t *testing.T) {
 			// Decode: intDecoder,
 			Name: "a",
 			Base: 10,
+			Prec: -1,
+			Fmt:  'f',
 		},
 		{
 			Index: []int{2},
 			// Decode: textDecoder,
 			Name: "C",
 			Base: 10,
+			Prec: -1,
+			Fmt:  'f',
 		},
 	}
 
@@ -152,7 +156,7 @@ func TestValueDecoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), &uval},
 	}
 
-	field := structField{Base: 10}
+	field := structField{Base: 10, Prec: -1, Fmt: 'f'}
 	for _, testCase := range testCases {
 		v := reflect.New(testCase.Type)
 		if decoder, err := mapValueDecoder(testCase.Type, ""); err != nil {
@@ -200,7 +204,7 @@ func TestValueEncoders(t *testing.T) {
 		{"1337", reflect.TypeOf((*uint)(nil)), uint(1337)},
 	}
 
-	field := structField{Base: 10}
+	field := structField{Base: 10, Prec: -1, Fmt: 'f'}
 	for _, testCase := range testCases {
 		if encoder, err := mapValueEncoder(testCase.Type, ""); err != nil {
 			t.Error(testCase.Type, err)
@@ -217,23 +221,32 @@ func TestParseTag(t *testing.T) {
 		Tag  string
 		Name string
 		Base int
+		Prec int
+		Fmt  byte
 	}{
-		{"", "", 0},
-		{",", "", 0},
-		{"my_field", "my_field", 0},
-		{",base=5", "", 5},
-		{"-,base=3", "-", 3},
-		{"my_field,base=16", "my_field", 16},
-		{"my_field,base=16,base=2", "my_field", 2},
-		{"my_field,something,,base=", "my_field", 0},
+		{"", "", 10, -1, 'f'},
+		{",", "", 10, -1, 'f'},
+		{"my_field", "my_field", 10, -1, 'f'},
+		{",base=5", "", 5, -1, 'f'},
+		{"-,base=3", "-", 3, -1, 'f'},
+		{"my_field,base=16", "my_field", 16, -1, 'f'},
+		{"my_field,base=16,base=2", "my_field", 2, -1, 'f'},
+		{"my_field,something,,base=", "my_field", 10, -1, 'f'},
+		{"my_field,prec=5,fmt=G", "my_field", 10, 5, 'G'},
 	}
 	for _, testcase := range testcases {
-		name, base := parseTag(testcase.Tag)
+		name, base, prec, ffmt := parseTag(testcase.Tag)
 		if name != testcase.Name {
 			t.Error(testcase.Tag, name, "!=", testcase.Name)
 		}
 		if base != testcase.Base {
 			t.Error(testcase.Tag, base, "!=", testcase.Base)
+		}
+		if prec != testcase.Prec {
+			t.Error(testcase.Tag, prec, "!=", testcase.Prec)
+		}
+		if ffmt != testcase.Fmt {
+			t.Error(testcase.Tag, ffmt, "!=", testcase.Fmt)
 		}
 	}
 }
