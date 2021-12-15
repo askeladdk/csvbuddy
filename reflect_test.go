@@ -250,3 +250,25 @@ func TestParseTag(t *testing.T) {
 		}
 	}
 }
+
+func TestEmbeddedStruct(t *testing.T) {
+	type A struct{ A int }
+	type B struct{ B int }
+
+	numbers := []struct {
+		A
+		B B `csv:",inline"`
+		C int
+	}{
+		{A: A{A: 1101}, B: B{B: -100}, C: 1},
+		{A: A{A: 1001}, B: B{B: -200}, C: 2},
+	}
+	text, err := Marshal(&numbers)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	if string(text) != "A,B,C\n1101,-100,1\n1001,-200,2\n" {
+		t.Fatal(string(text))
+	}
+}

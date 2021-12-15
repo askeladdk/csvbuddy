@@ -408,18 +408,19 @@ func parseTag(tag string) (name string, base, prec int, fmt byte) {
 	return
 }
 
-func structFieldsOf(t reflect.Type) ([]structField, error) {
-	structLock.Lock()
-	defer structLock.Unlock()
-	if fields, exists := structCache[t]; exists {
-		return fields, nil
-	}
-
-	var fields []structField
-	names := map[string]struct{}{}
-
+func appendStructFields(t reflect.Type, index []int, fields *[]structField, names *map[string]struct{}) error {
 	for i := 0; i < t.NumField(); i++ {
 		if field := t.Field(i); field.IsExported() {
+			// check for inline struct
+			if field.Type.Kind() == reflect.Struct {
+				if field.Anonymous || strings.Contains(field.Tag.Get("csv"), ",inline") {
+					if err := appendStructFields(field.Type, append(append([]int{}, index...), i), fields, names); err != nil {
+						return err
+					}
+					continue
+				}
+			}
+
 			var name string
 			var base, prec int
 			var ffmt byte
@@ -431,19 +432,19 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 				name = field.Name
 			}
 			if name != "-" {
-				if _, exists := names[name]; exists {
-					return nil, fmt.Errorf("duplicate field name '%s'", name)
+				if _, exists := (*names)[name]; exists {
+					return fmt.Errorf("duplicate field name '%s'", name)
 				}
 				decoder, err := mapValueDecoder(field.Type, name)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				encoder, err := mapValueEncoder(field.Type, name)
 				if err != nil {
-					return nil, err
+					return err
 				}
-				fields = append(fields, structField{
-					Index:  field.Index,
+				*fields = append(*fields, structField{
+					Index:  append(append([]int{}, index...), field.Index...),
 					Name:   name,
 					Base:   base,
 					Prec:   prec,
@@ -451,9 +452,25 @@ func structFieldsOf(t reflect.Type) ([]structField, error) {
 					Decode: decoder,
 					Encode: encoder,
 				})
-				names[name] = struct{}{}
+				(*names)[name] = struct{}{}
 			}
 		}
+	}
+	return nil
+}
+
+func structFieldsOf(t reflect.Type) ([]structField, error) {
+	structLock.Lock()
+	defer structLock.Unlock()
+	if fields, exists := structCache[t]; exists {
+		return fields, nil
+	}
+
+	var fields []structField
+	names := map[string]struct{}{}
+
+	if err := appendStructFields(t, nil, &fields, &names); err != nil {
+		return nil, err
 	}
 
 	structCache[t] = fields
