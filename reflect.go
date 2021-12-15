@@ -187,22 +187,12 @@ func newValueConverter(t reflect.Type, name string, base, prec int, ffmt byte) (
 	switch t.Kind() {
 	case reflect.Bool:
 		return &boolCodec{}, nil
-	case reflect.Complex64:
-		return &complexCodec{64, prec, ffmt}, nil
-	case reflect.Complex128:
-		return &complexCodec{128, prec, ffmt}, nil
-	case reflect.Float32:
-		return &floatCodec{32, prec, ffmt}, nil
-	case reflect.Float64:
-		return &floatCodec{64, prec, ffmt}, nil
-	case reflect.Int8:
-		return &intCodec{8, base}, nil
-	case reflect.Int16:
-		return &intCodec{16, base}, nil
-	case reflect.Int32:
-		return &intCodec{32, base}, nil
-	case reflect.Int64, reflect.Int:
-		return &intCodec{64, base}, nil
+	case reflect.Complex64, reflect.Complex128:
+		return &complexCodec{t.Bits(), prec, ffmt}, nil
+	case reflect.Float32, reflect.Float64:
+		return &floatCodec{t.Bits(), prec, ffmt}, nil
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+		return &intCodec{t.Bits(), base}, nil
 	case reflect.Ptr:
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
@@ -213,32 +203,16 @@ func newValueConverter(t reflect.Type, name string, base, prec int, ffmt byte) (
 		switch t.Kind() {
 		case reflect.Bool:
 			return &ptrCodec{&boolCodec{}}, nil
-		case reflect.Complex64:
-			return &ptrCodec{&complexCodec{64, prec, ffmt}}, nil
-		case reflect.Complex128:
-			return &ptrCodec{&complexCodec{128, prec, ffmt}}, nil
-		case reflect.Float32:
-			return &ptrCodec{&floatCodec{32, prec, ffmt}}, nil
-		case reflect.Float64:
-			return &ptrCodec{&floatCodec{64, prec, ffmt}}, nil
-		case reflect.Int8:
-			return &ptrCodec{&intCodec{8, base}}, nil
-		case reflect.Int16:
-			return &ptrCodec{&intCodec{16, base}}, nil
-		case reflect.Int32:
-			return &ptrCodec{&intCodec{32, base}}, nil
-		case reflect.Int64, reflect.Int:
-			return &ptrCodec{&intCodec{64, base}}, nil
+		case reflect.Complex64, reflect.Complex128:
+			return &ptrCodec{&complexCodec{t.Bits(), prec, ffmt}}, nil
+		case reflect.Float32, reflect.Float64:
+			return &ptrCodec{&floatCodec{t.Bits(), prec, ffmt}}, nil
+		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
+			return &ptrCodec{&intCodec{t.Bits(), base}}, nil
 		case reflect.String:
 			return &ptrCodec{&stringCodec{}}, nil
-		case reflect.Uint8:
-			return &ptrCodec{&uintCodec{8, base}}, nil
-		case reflect.Uint16:
-			return &ptrCodec{&uintCodec{16, base}}, nil
-		case reflect.Uint32:
-			return &ptrCodec{&uintCodec{32, base}}, nil
-		case reflect.Uint64, reflect.Uint:
-			return &ptrCodec{&uintCodec{64, base}}, nil
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+			return &ptrCodec{&uintCodec{t.Bits(), base}}, nil
 		}
 		if t.ConvertibleTo(byteSliceType) {
 			return &ptrCodec{&byteSliceCodec{}}, nil
@@ -246,14 +220,8 @@ func newValueConverter(t reflect.Type, name string, base, prec int, ffmt byte) (
 		return nil, fmt.Errorf("cannot decode field '%s'", name)
 	case reflect.String:
 		return &stringCodec{}, nil
-	case reflect.Uint8:
-		return &uintCodec{8, base}, nil
-	case reflect.Uint16:
-		return &uintCodec{16, base}, nil
-	case reflect.Uint32:
-		return &uintCodec{32, base}, nil
-	case reflect.Uint64, reflect.Uint:
-		return &uintCodec{64, base}, nil
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
+		return &uintCodec{t.Bits(), base}, nil
 	}
 
 	if t.ConvertibleTo(byteSliceType) {
