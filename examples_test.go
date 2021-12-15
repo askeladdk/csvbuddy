@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/askeladdk/csvbuddy"
@@ -111,4 +112,16 @@ func Example_dataCleaning() {
 	// Tokyo, JP is located at coordinate (35.6897, 139.6922).
 	// Jakarta, ID is located at coordinate (-6.2146, 106.8451).
 	// Delhi, IN is located at coordinate (28.6600, 77.2300).
+}
+
+func Example_floatingPointTags() {
+	numbers := []struct {
+		N float64 `csv:"number,prec=3,fmt=E"`
+	}{{math.Pi}, {100e4}}
+	text, _ := csvbuddy.Marshal(&numbers)
+	fmt.Println(string(text))
+	// Output:
+	// number
+	// 3.142E+00
+	// 1.000E+06
 }

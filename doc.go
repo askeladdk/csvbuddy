@@ -6,18 +6,20 @@
 // Struct fields are automatically mapped by name to a CSV column.
 // By default the column name is the same as the field name.
 // Use the "csv" tag to encode/decode to a different column.
-// The "csv" tag can also take a parameter to control the base of integers.
+// The "csv" tag can also take parameters for integer base,
+// floating point precision and format.
 //
 //  // AStruct is an example CSV struct.
 //  type AStruct struct {
-//      Name    string `csv:"name"`
-//      Hex     uint   `csv:"addr,base=16"`
-//      Ignored int    `csv:"-"`
+//      Name    string  `csv:"name"`
+//      Hex     uint    `csv:"addr,base=16"`
+//      Flt     float64 `csv:"flt,prec=6,fmt=E"`
+//      Ignored int     `csv:"-"`
 //  }
 //
 // The following struct field types are supported:
-// bool, int*, uint*, float*, complex*, []byte, string,
-// encoding.TextMarshaler, encoding.TextUnmarshaler.
+// bool, int[8, 16, 32, 64], uint[8, 16, 32, 64], float[32, 64], complex[64, 128],
+// []byte, string, encoding.TextMarshaler, encoding.TextUnmarshaler.
 // Other values produce an error.
 //
 // Pointers to any of the above types are interpreted as optional types.
