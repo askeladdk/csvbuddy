@@ -73,9 +73,9 @@ func TestStructFieldsOf(t *testing.T) {
 
 	// stupid workaround for DeepEqual being unable to compare funcs
 	// even though they are comparable by address
-	if ptrTo(fields[0].Decode) != ptrTo(intDecoder) {
+	if ptrTo(fields[0].Decode) != ptrTo(int64Decoder) {
 		t.Fatal("not equal")
-	} else if ptrTo(fields[1].Decode) != ptrTo(intPtrDecoder) {
+	} else if ptrTo(fields[1].Decode) != ptrTo(int64PtrDecoder) {
 		t.Fatal("not equal")
 	} else if ptrTo(fields[0].Encode) != ptrTo(intEncoder) {
 		t.Fatal("not equal")
@@ -133,14 +133,14 @@ func TestValueDecoders(t *testing.T) {
 		{"1-2.3i", reflect.TypeOf(complex64(0)), complex64(1 - 2.3i)},
 		{"3.14159", reflect.TypeOf(float32(0)), float32(3.14159)},
 		{"3.14159", reflect.TypeOf(float64(0)), 3.14159},
-		{"-1337", reflect.TypeOf(int8(0)), int8(-57)},
+		{"-42", reflect.TypeOf(int8(0)), int8(-42)},
 		{"-1337", reflect.TypeOf(int16(0)), int16(-1337)},
 		{"-1337", reflect.TypeOf(int32(0)), int32(-1337)},
 		{"-1337", reflect.TypeOf(int64(0)), int64(-1337)},
 		{"-1337", reflect.TypeOf(int(0)), int(-1337)},
 		{"hello world", reflect.TypeOf(""), "hello world"},
 		{"hello world", reflect.TypeOf(uppercase("")), uppercase("HELLO WORLD")},
-		{"1337", reflect.TypeOf(uint8(0)), uint8(57)},
+		{"42", reflect.TypeOf(uint8(0)), uint8(42)},
 		{"1337", reflect.TypeOf(uint16(0)), uint16(1337)},
 		{"1337", reflect.TypeOf(uint32(0)), uint32(1337)},
 		{"1337", reflect.TypeOf(uint64(0)), uint64(1337)},

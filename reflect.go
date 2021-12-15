@@ -56,13 +56,22 @@ var (
 	float64Decoder    = floatDecoder(64)
 )
 
-func intDecoder(v reflect.Value, s string, field *structField) (err error) {
-	var x int64
-	if x, err = strconv.ParseInt(s, field.Base, 64); err == nil {
-		v.SetInt(x)
+func intDecoder(bitSize int) valueDecoder {
+	return func(v reflect.Value, s string, field *structField) (err error) {
+		var x int64
+		if x, err = strconv.ParseInt(s, field.Base, bitSize); err == nil {
+			v.SetInt(x)
+		}
+		return
 	}
-	return
 }
+
+var (
+	int8Decoder  = intDecoder(8)
+	int16Decoder = intDecoder(16)
+	int32Decoder = intDecoder(32)
+	int64Decoder = intDecoder(64)
+)
 
 func ptrDecoder(decode valueDecoder) valueDecoder {
 	return func(v reflect.Value, s string, field *structField) (err error) {
@@ -85,10 +94,16 @@ var (
 	complex128PtrDecoder = ptrDecoder(complex128Decoder)
 	float32PtrDecoder    = ptrDecoder(float32Decoder)
 	float64PtrDecoder    = ptrDecoder(float64Decoder)
-	intPtrDecoder        = ptrDecoder(intDecoder)
+	int8PtrDecoder       = ptrDecoder(int8Decoder)
+	int16PtrDecoder      = ptrDecoder(int16Decoder)
+	int32PtrDecoder      = ptrDecoder(int32Decoder)
+	int64PtrDecoder      = ptrDecoder(int64Decoder)
 	stringPtrDecoder     = ptrDecoder(stringDecoder)
 	textPtrDecoder       = ptrDecoder(textDecoder)
-	uintPtrDecoder       = ptrDecoder(uintDecoder)
+	uint8PtrDecoder      = ptrDecoder(uint8Decoder)
+	uint16PtrDecoder     = ptrDecoder(uint16Decoder)
+	uint32PtrDecoder     = ptrDecoder(uint32Decoder)
+	uint64PtrDecoder     = ptrDecoder(uint64Decoder)
 )
 
 func stringDecoder(v reflect.Value, s string, _ *structField) (err error) {
@@ -96,13 +111,22 @@ func stringDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	return
 }
 
-func uintDecoder(v reflect.Value, s string, field *structField) (err error) {
-	var x uint64
-	if x, err = strconv.ParseUint(s, field.Base, 64); err == nil {
-		v.SetUint(x)
+func uintDecoder(bitSize int) valueDecoder {
+	return func(v reflect.Value, s string, field *structField) (err error) {
+		var x uint64
+		if x, err = strconv.ParseUint(s, field.Base, bitSize); err == nil {
+			v.SetUint(x)
+		}
+		return
 	}
-	return
 }
+
+var (
+	uint8Decoder  = uintDecoder(8)
+	uint16Decoder = uintDecoder(16)
+	uint32Decoder = uintDecoder(32)
+	uint64Decoder = uintDecoder(64)
+)
 
 func byteSliceDecoder(v reflect.Value, s string, _ *structField) (err error) {
 	v.SetBytes([]byte(s))
@@ -129,8 +153,14 @@ func mapValueDecoder(t reflect.Type, name string) (valueDecoder, error) {
 		return float32Decoder, nil
 	case reflect.Float64:
 		return float64Decoder, nil
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		return intDecoder, nil
+	case reflect.Int8:
+		return int8Decoder, nil
+	case reflect.Int16:
+		return int16Decoder, nil
+	case reflect.Int32:
+		return int32Decoder, nil
+	case reflect.Int64, reflect.Int:
+		return int64Decoder, nil
 	case reflect.Ptr:
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
@@ -149,12 +179,24 @@ func mapValueDecoder(t reflect.Type, name string) (valueDecoder, error) {
 			return float32PtrDecoder, nil
 		case reflect.Float64:
 			return float64PtrDecoder, nil
-		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-			return intPtrDecoder, nil
+		case reflect.Int8:
+			return int8PtrDecoder, nil
+		case reflect.Int16:
+			return int16PtrDecoder, nil
+		case reflect.Int32:
+			return int32PtrDecoder, nil
+		case reflect.Int64, reflect.Int:
+			return int64PtrDecoder, nil
 		case reflect.String:
 			return stringPtrDecoder, nil
-		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-			return uintPtrDecoder, nil
+		case reflect.Uint8:
+			return uint8PtrDecoder, nil
+		case reflect.Uint16:
+			return uint16PtrDecoder, nil
+		case reflect.Uint32:
+			return uint32PtrDecoder, nil
+		case reflect.Uint64, reflect.Uint:
+			return uint64PtrDecoder, nil
 		}
 		if t.ConvertibleTo(byteSliceType) {
 			return byteSlicePtrDecoder, nil
@@ -162,8 +204,14 @@ func mapValueDecoder(t reflect.Type, name string) (valueDecoder, error) {
 		return nil, fmt.Errorf("cannot decode field '%s'", name)
 	case reflect.String:
 		return stringDecoder, nil
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		return uintDecoder, nil
+	case reflect.Uint8:
+		return uint8Decoder, nil
+	case reflect.Uint16:
+		return uint16Decoder, nil
+	case reflect.Uint32:
+		return uint32Decoder, nil
+	case reflect.Uint64, reflect.Uint:
+		return uint64Decoder, nil
 	}
 
 	if t.ConvertibleTo(byteSliceType) {
