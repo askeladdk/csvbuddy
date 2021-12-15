@@ -4,17 +4,25 @@
 //
 // Every exported struct field is interpreted as a CSV column.
 // Struct fields are automatically mapped by name to a CSV column.
-// By default the column name is the same as the field name.
-// Use the "csv" tag to encode/decode to a different column.
-// The "csv" tag can also take parameters for integer base,
-// floating point precision and format.
+// Use the "csv" struct field tag to customize how each field is marshaled.
 //
-//  // AStruct is an example CSV struct.
-//  type AStruct struct {
-//      Name    string  `csv:"name"`
-//      Hex     uint    `csv:"addr,base=16"`
-//      Flt     float64 `csv:"flt,prec=6,fmt=E"`
-//      Ignored int     `csv:"-"`
+//  // StructA demonstrates CSV struct field tags.
+//  type StructA struct {
+//      // The first param is always the name, which can be empty.
+//      // Default is the name of the field.
+//      Name string `csv:"name"`
+//      // Exported fields with name "-" are ignored.
+//      Ignored int `csv:"-"`
+//      // Use base to set the integer base. Default is 10.
+//      Hex uint `csv:"addr,base=16"`
+//      // Use prec and fmt to set floating point precision and format. Default is -1 and 'f'.
+//      Flt float64 `csv:"flt,prec=6,fmt=E"`
+//      // Inline structs with inline tag.
+//      // Any csv fields in the inlined struct are also (un)marshaled.
+//      // Beware of naming clashes.
+//      B StructB `csv:",inline"`
+//      // Embedded structs do not need the inline tag.
+//      StructC
 //  }
 //
 // The following struct field types are supported:
