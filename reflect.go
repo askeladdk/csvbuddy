@@ -249,12 +249,12 @@ func valueOf(i interface{}) (v reflect.Value, err error) {
 func parseTag(tag string) (name string, base, prec int, fmt byte) {
 	base, prec, fmt = 10, -1, 'f'
 	// parse the name
-	if i := strings.IndexByte(tag, ','); i == -1 {
+	i := strings.IndexByte(tag, ',')
+	if i == -1 {
 		name = tag
 		return
-	} else {
-		name, tag = tag[:i], tag[i+1:]
 	}
+	name, tag = tag[:i], tag[i+1:]
 	// parse the other parameters
 	var val string
 	for tag != "" {
