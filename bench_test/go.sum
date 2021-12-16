@@ -1,0 +1,11 @@
+github.com/askeladdk/csvbuddy v0.0.2 h1:VtFF9PdQqoKwTxBaPGi7PR/hM/lmACK9IHcWrkTtKJo=
+github.com/askeladdk/csvbuddy v0.0.2/go.mod h1:i6mwh+v6+icu78WZo5m9d1XHcy2Vn+cbNQNyBcnQDw4=
+github.com/gocarina/gocsv v0.0.0-20211203214250-4735fba0c1d9 h1:ptTza/LLPmfRtmz77X+6J61Wyf5e1hz5xYMvRk/hkE4=
+github.com/gocarina/gocsv v0.0.0-20211203214250-4735fba0c1d9/go.mod h1:5YoVOkjYAQumqlV356Hj3xeYh4BdZuLE0/nRkf2NKkI=
+github.com/google/go-cmp v0.4.0 h1:xsAVV57WRhGj6kEIi8ReJzQlHHqcBYCElAvkovg3B/4=
+github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+github.com/jszwec/csvutil v1.6.0 h1:QORXquCT0t8nUKD7utAD4HDmQMgG0Ir9WieZXzpa7ms=
+github.com/jszwec/csvutil v1.6.0/go.mod h1:Rpu7Uu9giO9subDyMCIQfHVDuLrcaC36UA4YcJjGBkg=
+github.com/yunabe/easycsv v0.0.2 h1:71t6MV9+p0lO7POEFU6z3BkzQAlDAN4dO3AzllRhbdo=
+github.com/yunabe/easycsv v0.0.2/go.mod h1:JFAbAhLlYGYizG1HqSz+UNxU5bKEk65MXu2VXgFuNNQ=
+golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
