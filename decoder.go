@@ -18,6 +18,7 @@ type Decoder struct {
 	readerFunc            ReaderFunc
 	mapFunc               MapFunc
 	disallowUnknownFields bool
+	disallowShortFields   bool
 	skipHeader            bool
 }
 
@@ -61,9 +62,9 @@ func (d *Decoder) decodeFunc(structType reflect.Type, fn func(reflect.Value) err
 			return fmt.Errorf("csv: %w", err)
 		}
 
-		// disallow records that have more columns than struct fields
-		if len(record) < len(fields) || (d.disallowUnknownFields && len(record) > len(fields)) {
-			line, _ := fieldPos(cr, 1)
+		// disallow records that have more or fewer columns than struct fields
+		if (d.disallowShortFields && len(record) < len(fields)) || (d.disallowUnknownFields && len(record) > len(fields)) {
+			line, _ := fieldPos(cr, 0)
 			return fmt.Errorf("csv: %w", &csv.ParseError{
 				StartLine: line,
 				Line:      line,
@@ -165,6 +166,10 @@ func (d *Decoder) DecodeFunc(fn interface{}) (err error) {
 // DisallowUnknownFields causes the Decoder to raise an error
 // if a record has more columns than struct fields.
 func (d *Decoder) DisallowUnknownFields() { d.disallowUnknownFields = true }
+
+// DisallowShortFields causes the Decoder to raise an error
+// if a record has fewer columns than struct fields.
+func (d *Decoder) DisallowShortFields() { d.disallowShortFields = true }
 
 // SetMapFunc causes the Decoder to call fn on every field before type conversion.
 // Use this to clean wrongly formatted values.

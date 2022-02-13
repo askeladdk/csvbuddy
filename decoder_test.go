@@ -120,6 +120,45 @@ func TestDecodeDisallowUnknownFields(t *testing.T) {
 	}
 }
 
+func TestDecodeDisallowShortFields(t *testing.T) {
+	type struc struct {
+		B bool
+		S string
+	}
+
+	testdata := "true"
+
+	var data []struc
+
+	d := NewDecoder(strings.NewReader(testdata))
+	d.DisallowShortFields()
+	d.SkipHeader()
+
+	if err := d.Decode(&data); !errors.Is(err, csv.ErrFieldCount) {
+		t.Fatal("should be error")
+	}
+}
+
+func TestDecodeShortFields(t *testing.T) {
+	type struc struct {
+		B bool
+		S string
+	}
+
+	testdata := "true\nfalse,yes"
+
+	var data []struc
+
+	d := NewDecoder(strings.NewReader(testdata))
+	d.SkipHeader()
+
+	if err := d.Decode(&data); err != nil {
+		t.Fatal("should not be error")
+	} else if len(data) != 2 || data[0].S != "" || data[1].S != "yes" {
+		t.Fatal("parse error")
+	}
+}
+
 func TestDecodeSyntaxError(t *testing.T) {
 	type struc struct {
 		B bool
