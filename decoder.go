@@ -90,7 +90,7 @@ func (d *Decoder) decodeFunc(structType reflect.Type, fn func(reflect.Value) err
 			value = d.mapFunc(field.Name, value)
 			if err = field.Decode(fieldval, value); err != nil {
 				if fieldidx >= len(record) {
-					fieldidx = 1
+					fieldidx = 0
 				}
 				line, column := fieldPos(cr, fieldidx)
 				return fmt.Errorf("csv: %w", &csv.ParseError{
