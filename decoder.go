@@ -168,7 +168,7 @@ func (d *Decoder) DisallowUnknownFields() { d.disallowUnknownFields = true }
 
 // SetMapFunc causes the Decoder to call fn on every field before type conversion.
 // Use this to clean wrongly formatted values.
-func (d *Decoder) SetMapFunc(fn func(name, value string) string) { d.mapFunc = fn }
+func (d *Decoder) SetMapFunc(fn MapFunc) { d.mapFunc = fn }
 
 // SkipHeader causes the Decoder to not parse the first
 // record as the header but to derive it from the struct tags.
