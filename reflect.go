@@ -358,13 +358,15 @@ func innerTypeOf(t reflect.Type, kinds ...reflect.Kind) reflect.Type {
 
 func headerIndices(header []string, fields []structField) (indices []int, err error) {
 	// check for duplicate header names
-	names := map[string]struct{}{}
+	names := make(map[string]struct{}, len(header))
 	for _, h := range header {
 		if _, exists := names[h]; exists {
 			return nil, fmt.Errorf("duplicate header name '%s'", h)
 		}
 		names[h] = struct{}{}
 	}
+
+	indices = make([]int, 0, 2*len(names))
 
 	// for every column in header, find index of struct field with matching name
 	for i, col := range header {
