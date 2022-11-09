@@ -57,17 +57,24 @@ func TestDecode(t *testing.T) {
 	}
 }
 
-func TestDecodeFunc(t *testing.T) {
+func TestDecoderIterate(t *testing.T) {
 	testdata := strings.Join([]string{
 		"bool,bytes,complex,float,int,optional,string,uint,uppercase",
 		"true,hello,1+1i,3.1415,-173,0,hello world,1337,gopher",
 	}, "\n")
 
 	var data []testStruct
-	if err := NewDecoder(strings.NewReader(testdata)).DecodeFunc(func(s *testStruct) error {
-		data = append(data, *s)
-		return nil
-	}); err != nil {
+	var row testStruct
+	iter, err := NewDecoder(strings.NewReader(testdata)).Iterate(&row)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for iter.Scan() {
+		data = append(data, row)
+	}
+
+	if err := iter.Err(); err != nil {
 		t.Fatal(err)
 	}
 
