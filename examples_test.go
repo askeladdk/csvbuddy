@@ -94,7 +94,7 @@ func Example_dataCleaning() {
 		case "lat", "lng":
 			value = strings.ReplaceAll(value, ",", ".")
 		case "name":
-			value = strings.Title(strings.ToLower(value))
+			value = strings.Title(strings.ToLower(value)) //nolint
 		case "country":
 			value = strings.ToUpper(value)
 		}
