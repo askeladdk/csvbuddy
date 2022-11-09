@@ -79,14 +79,20 @@ func (e *Encoder) Encode(v interface{}) (err error) {
 		}
 	}
 
-	// special case for csv.Writer because Flush does not return an error
-	if csvw, ok := w.(interface {
+	type csvFlusher interface {
 		Flush()
 		Error() error
-	}); ok {
+	}
+
+	type flusher interface {
+		Flush() error
+	}
+
+	// special case for csv.Writer because Flush does not return an error
+	if csvw, ok := w.(csvFlusher); ok {
 		csvw.Flush()
 		return csvw.Error()
-	} else if flusher, ok := w.(interface{ Flush() error }); ok {
+	} else if flusher, ok := w.(flusher); ok {
 		return flusher.Flush()
 	}
 
