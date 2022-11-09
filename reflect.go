@@ -12,7 +12,6 @@ import (
 
 var (
 	byteSliceType       = reflect.TypeOf((*[]byte)(nil)).Elem()
-	errorType           = reflect.TypeOf((*error)(nil)).Elem()
 	textMarshalerType   = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
