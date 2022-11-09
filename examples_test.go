@@ -125,3 +125,31 @@ func Example_floatingPointTags() {
 	// 3.142E+00
 	// 1.000E+06
 }
+
+func Example_decoderIterate() {
+	moviesCSV := strings.Join([]string{
+		"movie,year of release",
+		"The Matrix,1999",
+		"Back To The Future,1985",
+		"The Terminator,1984",
+		"2001: A Space Odyssey,1968",
+	}, "\n")
+
+	var movie struct {
+		Name string `csv:"movie"`
+		Year int    `csv:"year of release"`
+	}
+
+	cr := csvbuddy.NewDecoder(strings.NewReader(moviesCSV))
+
+	iter, _ := cr.Iterate(&movie)
+	for iter.Scan() {
+		fmt.Printf("%s was released in %d.\n", movie.Name, movie.Year)
+	}
+
+	// Output:
+	// The Matrix was released in 1999.
+	// Back To The Future was released in 1985.
+	// The Terminator was released in 1984.
+	// 2001: A Space Odyssey was released in 1968.
+}

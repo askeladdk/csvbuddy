@@ -73,7 +73,7 @@ enc.SetWriterFunc(func(w io.Writer) csvbuddy.Writer {
 ```
 
 ```go
-dec := csvbuddy.NewDecoder(w)
+dec := csvbuddy.NewDecoder(r)
 dec.SetReaderFunc(func(r io.Reader) csvbuddy.Reader {
     cr := csv.NewReader(w)
     cr.Comma = ';'
@@ -93,6 +93,19 @@ dec.SetMapFunc(func(name, value string) string {
     }
     return value
 })
+```
+
+Use the `Iterate` method to decode a CSV as a stream of rows. This allows decoding of very large CSV files without having to read it entirely into memory.
+
+```go
+dec := csvbuddy.NewDecoder(r)
+var row structType
+
+iter, _ := dec.Iterate(&row)
+
+for iter.Scan() {
+    fmt.Println(row)
+}
 ```
 
 Read the rest of the [documentation on pkg.go.dev](https://godoc.org/github.com/askeladdk/csvbuddy). It's easy-peasy!
